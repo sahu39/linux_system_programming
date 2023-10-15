@@ -1,0 +1,7 @@
+Thread and memory segment:
+---------------------------
+https://www.cs.rutgers.edu/~pxk/416/notes/05-threads.html
+https://computing.llnl.gov/tutorials/pthreads/
+
+https://www.youtube.com/@CodeVault
+https://www.youtube.com/watch?v=d9s_d28yJq0&list=PLfqABt5AS4FmuQf70psXrsMLEDQXNkLq2

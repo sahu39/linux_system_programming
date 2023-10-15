@@ -1,0 +1,8 @@
+link1:
+-----
+https://www.tutorialspoint.com/c_standard_library/c_function_fseek.htm
+
+
+link2:
+------
+https://www.geeksforgeeks.org/fseek-in-c-with-example/

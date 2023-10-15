@@ -1,0 +1,702 @@
+                                                    IPC techniques
+                                                    --------------
+Sockets:
+--------
+https://users.cs.jmu.edu/bernstdh/web/common/lectures/summary_unix_udp.php
+-APIS provided by linux:
+-Unix domain sockets:
+ ----------------------
+ -IPC between  processes running on the same system
+-Network sockets:
+ ----------------
+ -communication between processes running on differnet physical machines over the network.
+
+ steps and related apis:
+ -----------------------
+ 1. Remove the socket if already exist.
+ 2. socket()--->create a unix socket.
+ 3. specify the socket name.
+ 4. bind()------>Bind the socket./
+ 5. listen()
+ 6. accept()
+ 7. recvfrom()-->read the data on socket
+ 8. sendto()---->send the result
+ 9. close------->close the data socket
+ 10. close------>close the connection socket
+ 11. Remove the socket
+ 12. exit
+
+-Linux system call interface:
+----------------------------
+
+
+                           application
+-------------------------------------------------------------
+                          system call interface
+-------------------------------------------------------------
+                          OS/Kernel
+-------------------------------------------------------------
+                          Hardware Layer
+-------------------------------------------------------------
+
+
+
+-Socket message type:
+----------------------
+
+                     client_process<----------------------------------------------->server_process
+
+2 types of message type:
+-----------------------
+ 1.connection initiation request(CIR) messages:
+ -----------------------------------------
+ -This msg is used by the client process to request the server process to establish a dedicated connection.
+ -Only after the connection has been established. then only client can send Service request message to server.
+                                                                           ------------------------
+
+                         client_process----------1st.CIR--------------------->server_process
+                         client_process<---------2nd.Established connection-->server_process
+                         client_process----------3rd.SRM--------------------->server-process
+                         client_process<---------4th.Response-----------------server_process
+
+ 2.service request messages(SRM):
+ --------------------------------
+ -when connection is established between client process and server process client can send service request message.
+ -through service request message client request server to provide service.
+          ----------------------
+
+ e.g:
+ ----
+1st.(a,b)----client process generates 2 nos a and b.(SRM).
+2nd.client process can't compute the multiplication of a and b relys on server process.
+3rd.Multiplication services is provided by server process.
+4th.so SRM is pair of a,b send to thes server.
+5th.once server receives SRM (pair of a and b) server performs loacl computation multiplication.
+                        ------
+6th.once server process computes and generates result sends the result as respnse to the client process.
+                                                                         ---------
+                                                                         
+
+-State machine for socket based communication:
+----------------------------------------------
+ server:
+ -------
+ 1.when server boots up creates a connection socket using socket()/master_socket_file_descriptor.
+                                                         ---------
+  client send new connection request to the server.
+  the os diverts such requsets to master socket file descriptor(M) created by socket() .
+  server create socket handles(Cn_handle) for each client(Cn) request.
+                              
+                              ---------------------------
+                                      M--------C1_handle |
+                                      |                  |
+                                      |                  |
+                                      C2_handle          | 
+                               --------------------------
+                                      Server
+
+ 2.M is the mother of all Client Handles. M gives birth to the client handles.client handles are also called as data sockets.
+                                                                                                                ------------
+ 3.After server established connection with clients client send Service Request Message(SRM) from the corresponds to connected clients(Cn)
+   When M receives the SRM from the connected client(cn) diverts the service request message to the corresponding cn_handle in server os.
+   e.g .client process (C2) request(SRM) diverts to (C2_handle).
+   After receving SRM request it can process the SRM  and response back to Cn. 
+
+ 4.Once client handles(Cn_handle) are created for each client(Cn) server carries out communication(actual data exchange) with the client
+                                                                                                   ---------------------
+   using client handle(not M).
+ 5.Server has to maintain the database for of connected client handles or data sockets.
+ 6.Master socket file descriptor(M) is used to only create handles. not data exchange .Data exchange is the job of client handles(Cn_handl
+   es).
+ 7.accept()--->used in the server side to create client handles(cn_handles).
+ 8.handles--->possitive file descriptors
+                            ------------
+   client handles(Cn_handle)--->communication file descriptors(Data Sockets).                            
+   M--------------------------->master file descriptor(Connection Socket).
+
+   summary:
+   -------
+   For each client server creates temporay client handle & puts that handle into database(Array,tree,linked list).
+   The OS diverts the the CIR to Master and SRM to corresponding client handle.
+    
+-accept() system call:
+--------------------                       1st.connection initiation request
+                                      M<-----------------------------------------C1
+                                      |
+                        2nd.accept()  |
+                                      |
+                                   C1_handle(communnication file descriptor)
+
+ -Returns communication file descriptor(+ve integer).
+ -Server uses this communication file descriptor(Cn_handle) to send/receive the data to client(Cn).
+ -used for connection oriented communication not connection less communication.
+           ---------------------------------      -----------------------------     
+          
+                                         
+Server side main apis and prototype:
+------------------------------------
+1st:
+----
+connection_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+
+2nd:
+----
+ret = bind(connection_socket,(const struct sockaddr *)&name,sizeof(struct sockaddr_un));
+
+
+3rd:
+----
+ret = listen(connection_socket, 20);
+
+
+4th:blocking system call(wait until the client sending connect() request)
+----
+data_socket = accept(connection_socket,NULL,NULL);
+
+
+5th:
+----
+close(data_socket);
+
+6th:
+----
+close(connection_socket);
+
+
+
+
+
+client side main apis and prototype:
+--------------------------------------
+1st:
+------
+data_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+
+2nd:
+-----
+ret = connect(data_socket,(const struct sockaddr *)&addr,sizeof(struct sockaddr_un));
+
+3rd:
+----
+close(data_socket);
+
+Multiplexing:(Handling multiple clients):
+----------------------------------------
+select()---Monitor all client activities.
+
+-server maintains client handles(communication fds) to carry out communication with connected clients.
+                                                               |
+                                                    M----------------Cn
+                                                    |          |
+                                                    |          |
+                                                    |          |
+                                                Cn_handle      |
+                                                               |
+                                                  server       |    client
+
+-Purpose of master file fd(M) to process new connection request from clients.
+-Inbuiilt data structure to maintain all fds is fd_set.
+                                               --------
+-fd_set-----M,C1_handle,C2_handle.
+-select()----operates on fd_set--(M,C1_handles,C2_handles,....).
+-select()----allows server machine to monitor multiple client connected connections and check which client has send the data to process.
+                                             -------------------------------------
+
+                        C3<------------------->M<------------>C1
+                                               |
+                                               |
+                                               |
+                                               C2
+-blocking system call--system();
+-select() system unblocks:
+ -------------------------
+ 1.if new client request is happpening.
+ 2.if data request is happening with already connected clients.
+
+-once server is unblocked from select system call it will check whether it is a new connection request or data exchange request.
+
+-fd_set:
+-------
+
+-fd_set readfds;
+
+select and accept system call together action:
+----------------------------------------------
+new client connection request:
+------------------------------
+1st.Client(Cn) send connect request(CIR) to server.
+2nd.as sooon as server detects the connect() system call select() system call is unblocked.
+3rd.after unblocking invokes accept() system call and generates communication file descriptor.
+                                                                ------------------------------
+4th.Using this communication file descriptor client exchange data.
+              ------------------------------
+5th.fd_set data structure will added with new communication file descriptor along with the master file descriptor.
+                                             -----------------------------                ------------------------
+6th.After adding communication file descriptor to the radfds(fd_set datastructure) server process again invokes select() system call with
+    updated fd_set structure.
+7th.At this time master file descriptor should be active.
+
+data exchange with existing client:
+------------------------------------
+1st.Server invlokes select() system call with updated fd_set data structure.
+2nd.when client C1 which is already connected to server master socket file descriptor(M) sends data request to server communication file descriptor will be activated.
+3rd.At this time other communication file descriptor in fd_set structure is active.                                            
+
+
+
+A sample of the client socket call flow
+
+    socket()
+
+    connect()
+
+    while (x)
+
+    {
+
+      write()
+
+      read()
+
+    }
+
+    close()
+
+
+--------------------------------
+struct sockaddr_un vs. sockaddr:
+--------------------------------
+https://stackoverflow.com/questions/3689925/struct-sockaddr-un-vs-sockaddr
+http://www.cas.mcmaster.ca/~qiao/courses/cs3mh3/tutorials/socket.html
+
+
+Message Queuees:
+----------------
+-IPC mechanism
+-Process can create a new message queue or can use created message queue for transmission of data.
+-Message queue is identified uniquely by id(string) , no 2 message queue has same id.
+-Message queues are resides and managed in kernelOS.
+-Sending process A can post data to message queue. Receiving process B reads the data from msg Q.
+
+                                                      user space
+
+                            process A                                                       process B
+    ------------------------------------------------------------------------------------------------------------------------------------
+
+                                                      kernel space
+                                            Msg Q(ID="xyz")
+
+-APIS for Message Queues:
+-------------------------
+ 1.MQ_OPEN():message queue creation
+ ---------
+
+SYNOPSIS
+       #include <fcntl.h>           /* For O_* constants */
+       #include <sys/stat.h>        /* For mode constants */
+       #include <mqueue.h>
+
+       mqd_t mq_open(const char *name, int oflag);
+       mqd_t mq_open(const char *name, int oflag, mode_t mode, struct mq_attr *attr);
+
+
+return:mqd_t file descriptor
+
+e.g:1
+-----
+if((mq_open("/server-msg-q",O_RDONLY | O_CREAT | O_EXCL,0660,0)) == -1)
+{
+    perror("Server:mq-open(server)");
+    exit(1);
+}
+
+deffault size of message queue after creation if mq_attr parameter in null is 10 bytes.
+
+e.g:2
+-----
+struct mq_attr attribute;
+attribute.mq_flags = 0;
+attribute.mq_maxmsg = 10;
+attribute.mq_msgsize = 4096;
+attribute.mq_curmsgs = 0;
+if((mq_open("/server-msg-q",O_RDONLY | O_CREAT | O_EXCL,0660,&attribute)) == -1)
+{
+    perror("Server:mq-open(server)");
+    exit(1);
+}
+
+
+2.MQ_CLOSE():
+------------
+int mq_close(mqd_t msgQ);
+
+return:
+-------
+0-success
+-1-failure
+
+3.Enqueue a message:
+---------------------
+int mq_send(mqd_t msgQ,char *msg_ptr,size_t msg_len,unsigned int msg_prio);
+
+return:
+-------
+0--Success
+-1-Failure
+
+
+4.Dequeue a message:
+--------------------
+int mq_receive(mqd_t msgQ,size_t msg_len,unsigned int* msg_prio)
+
+return:
+-------
+n_bytes of received message
+-1-failure
+
+
+5.Destroying a message queue:
+------------------------------
+int mq_unlink(const char* msgqname)
+
+return:
+-------
+0---Success
+-1--Failure
+
+
+Using a message queue:
+----------------------
+-There can be N sender but 1 receiver
+-Multiple process can open same message queue and enque data into it.
+-Same message can't be delivered to multiple client process at same time.
+-Same client can receive different message from different message queue.
+
+Bi-direction msg queue  procedure:
+-----------------------------------
+-msg queue is created by client process when sender process wants to send data to client.
+-the sender process should know the msg queue created by client process in order to send/enque to msg queue of client msg queue.
+-If client process needs to send data through message queue then server process need to cereate msg queue.
+-So Bi-direction communication is possible by using 2 msg queue.
+
+
+
+
+struct sockaddr_in, struct in_addr:
+-----------------------------------
+https://www.gta.ufrj.br/ensino/eel878/sockets/sockaddr_inman.html
+
+
+Programming with UDP sockets :
+------------------------------
+https://www.cs.rutgers.edu/~pxk/417/notes/sockets/udp.html
+
+https://www.binarytides.com/programming-udp-sockets-c-linux/
+
+https://www.programminglogic.com/sockets-programming-in-c-using-udp-datagrams/
+
+Parallel TCP/IP Socket Server With Multithreading and Multiprocessing in C :
+----------------------------------------------------------------------------
+https://dzone.com/articles/parallel-tcpip-socket-server-with-multi-threading
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+									Shared Memory tutorial:
+									------------------------
+
+Program Control Block(PCB):
+----------------------------
+-Diagramatical representation of process:
+-Memory layout representation of process.
+-pcb sections:
+------------------
+ stack memory:
+ ----------------
+ -stores local variable.
+ -when calling of a function occurs the function address stores in stack memory.
+ -can not grow beyond the certain memory limit.
+ -Stack overflow is the situtation when the process consumes its stack memory segment fully. 
+
+
+
+ heap memory:
+ ---------------
+ -stores dynamic memory assigned to process.
+ -this section can grow and shrink.
+ -If more malloc calls in the program then heap expands or if free is called then heap memory shrins.
+
+ data section:
+ ---------------
+ stores the global and static variables of the process.
+
+ code section:
+ --------------
+ memory where text format code exist.
+
+
+Virtual Address Space=data+heap+stack
+--------------------------------------
+
+-Shared memory->chunk of kernel memory.
+                         -------------
+-process is not allowed to read or write outside of its virtual address space if it trys to read then segmantation fault occurs.
+                                                                                                      ------------------
+
+Kernel Memory:
+-----------------
+-Kernel uses its own memory for running schedulers, timers, User space memory management, and Interupts etc.
+-A User space process can request kernel to create kernel memory region.
+-This kernel memory region is out side the process virtual address  space. Hence no user space process can access that kernel memory directly.
+-So using shared memory user application/process can access that kernel memory.
+                                                                 -------------
+e.g:
+-----
+-kernel memory size wants to access = K'-K bytes.
+-proess request virtual address space(VAS) to expand this K'-K memory space.
+-For this case mmap() system call is used to expand VAS.
+              --------------------
+-New VAS size after mmap() system call=data+heap+stack+mmap allocated memory(K'-K) .
+             VAS = data+heap+stack+(K'-K)
+
+-New address space is assigned using paging.
+                                     -------
+-So A'-A = K'-K
+-A'-A------>VAS allocated space using mmap()
+-K'-K------>Actual Kernel memory space / size
+-A---->maped to K
+-A'--->maped to K'
+
+-For every address between [A-A'] there is a coressponding address in [K-K']. This is called Address Maping.
+                                                                                             ----------------
+-Two or more process can do address maping with same chunk of kernel memory region.
+-Therefore kernel memory is shared among shared among multiple user space process. hence termed as shared memory.
+                                                                                                   ---------------
+-process needs to unmap the memory region after it uses the shared memory region.
+
+
+-when to use shared memory:
+---------------------------
+-when exatctly one publisher process update the shared memory.
+-Rest of the other process reads from the shared memory.
+
+
+-When 2 process at a time trys to write to the shared memory handle these cases using mutual Exclusion based synchronization.
+                                                                                      ---------------------------------------
+the process of publisher process writing and updating to other process:
+------------------------------------------------------------------------
+1st.Publisher updates/write to shared memory.
+                               --------------
+2nd.Send notification to reader processes.
+
+
+                                                                              APIS:
+                                                                            ---------
+1.Creating and opening shared memory region:
+ -------------------------------------------
+ SYNOPSIS
+       #include <sys/mman.h>
+       #include <sys/stat.h>        /* For mode constants */
+       #include <fcntl.h>           /* For O_* constants */
+
+       int shm_open(const char *name, int oflag, mode_t mode);
+
+      
+
+       Link with -lrt.
+
+name specifies the shared memory object to be created or
+       opened.  For portable use, a shared memory object should be identified by a name of the form /somename;
+
+RETURN VALUE
+       On success, shm_open() returns a nonnegative file descriptor.  On fail‐
+       ure,  shm_open()  returns -1.  
+
+
+O_CREAT    Create the shared memory object if it does not  exist.
+
+O_RDONLY   Open the object for read access.
+
+O_RDWR     Open the object for read-write access.
+
+O_EXCL     If  O_CREAT  was  also specified, and a shared memory object
+                  with the given name already exists, return  an  error.
+
+O_TRUNC    If the shared memory object already exists, truncate  it  to
+                  zero bytes.
+
+
+e.g:
+----
+int shmfd = shm_open("/datasegment", O_CREAT | O_RDWR | O_TRUNC, 0660)
+
+
+
+-Setting the size of shred memory object:
+------------------------------------------
+SYNOPSIS
+       #include <unistd.h>
+       #include <sys/types.h>
+
+       int truncate(const char *path, off_t length);
+       int ftruncate(int fd, off_t length);
+
+
+DESCRIPTION
+       The  truncate()  and ftruncate() functions cause the regular file named
+       by path or referenced by fd to be truncated  to  a  size  of  precisely
+       length bytes.
+
+       If  the  file  previously  was larger than this size, the extra data is
+       lost.  If the file previously was shorter,  it  is  extended,  and  the
+       extended part reads as null bytes ('\0').
+
+       The file offset is not changed.
+
+RETURN VALUE
+       On  success,  zero is returned.  On error, -1 is returned, and errno is
+       set appropriately.
+
+
+
+
+
+
+
+-Mapping the shared memory into virtual address space:
+------------------------------------------------------
+
+SYNOPSIS
+       #include <sys/mman.h>
+
+       void *mmap(void *addr, size_t length, int prot, int flags,
+                  int fd, off_t offset);
+
+
+addr:
+-----
+If addr is NULL, then the kernel chooses the address at which to create
+       the mapping; this is the most portable method of creating  a  new  map‐
+       ping.   If  addr  is not NULL, then the kernel takes it as a hint about
+       where to place the mapping; on Linux, the mapping will be created at  a
+       nearby  page  boundary.   The address of the new mapping is returned as
+       the result of the call.
+prot:
+-----
+The prot argument describes the desired memory protection of  the  map‐
+       ping  (and  must  not  conflict with the open mode of the file).  It is
+       either PROT_NONE or the bitwise OR of one  or  more  of  the  following
+       flags:
+
+       PROT_EXEC  Pages may be executed.
+
+       PROT_READ  Pages may be read.
+
+       PROT_WRITE Pages may be written.
+
+       PROT_NONE  Pages may not be accessed.
+
+flags:
+------
+       The  flags argument determines whether updates to the mapping are visi‐
+       ble to other processes mapping the same region, and whether updates are
+       carried through to the underlying file.  This behavior is determined by
+       including exactly one of the following values in flags:
+
+       MAP_SHARED Share this mapping.  Updates to the mapping are  visible  to
+                  other  processes that map this file, and are carried through
+                  to the underlying  file.   The  file  may  not  actually  be
+                  updated until msync(2) or munmap() is called.
+
+
+RETURN VALUE
+       On success, mmap() returns a pointer to the mapped area.  On error, the
+       value  MAP_FAILED  (that is, (void *) -1) is returned, and errno is set
+       appropriately. 
+
+
+unmaping the shared memory:
+---------------------------
+int munmap(void *addr, size_t length);
+
+
+The munmap() system call deletes the mappings for the specified address range, and causes further references to addresses
+       within  the  range  to generate invalid memory references.  The region is also automatically unmapped when the process is
+       terminated.  On the other hand, closing the file descriptor does not unmap the region.
+
+addr:
+-----
+It is the return value of mmap.
+
+
+
+On success, munmap() returns 0, on failure -1, and errno is set (probably to
+       EINVAL).
+-It do not destroy the shared memory only destroy the mapping between shared memory in kernel space.
+ 
+
+
+shm_unlink:
+------------
+      int shm_unlink(const char *name);
+
+       Link with -lrt.
+
+
+Deassociates shared memory with its name
+
+
+Closing Shared Memory File Descriptor:
+----------------------------------------
+int close(int shm_fd);
+
+
+
+
+
+   
+
+
+
+  
+
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

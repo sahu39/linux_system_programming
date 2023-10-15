@@ -1,0 +1,7 @@
+https://www.tutorialspoint.com/unix_sockets/index.htm
+
+
+https://www.binarytides.com/socket-programming-c-linux-tutorial/
+
+
+https://www.tenouk.com/cnlinuxsockettutorials.html

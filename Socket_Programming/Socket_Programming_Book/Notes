@@ -1,0 +1,507 @@
+Socket:
+=======
+A socket is a communication mechanism that allows client/server systems to be developed either locally,
+on a single machine, or across networks.
+
+
+The socket mechanism can implement multiple clients attached to a single server.
+
+Socket Connections:
+=======================
+You can think of socket connections as telephone calls into a busy building. A call comes into an organization and is answered by a receptionist who 
+puts the call through to the correct department (the server process) and from there to the right person (the server socket).
+
+Server:
+--------
+1st:
+----
+First, a server application creates a socket, which like a file descriptor is a resource assigned to the server
+process and that process alone. The server creates it using the system call socket(), and it can’t be shared
+with other processes.
+
+2nd:
+---------
+-Next, the server process gives the socket a name. Local sockets are given a filename in the Linux file system often to be found in /tmp or /usr/tmp.
+-For network sockets, the filename will be a service identifier(port number/access point)relevant to the particular network to which the clients can connect.
+
+ This identifier allows Linux to route incoming connections specifying a particular port number to the correct
+ server process.
+ 
+ For example, a web server typically creates a socket on port 80, an identifier reserved for
+ the purpose. Web browsers know to use port 80 for their HTTP connections to web sites the user wants
+ to read.
+ 
+-A socket is named using the system call bind().
+
+3rd:
+----
+-The server process waits for a client to connect to the named socket using system call listen().
+-The system call, listen(), creates a queue for incoming connections.
+
+4th:
+----
+-The server can accept them using the system call accept().
+-When the server calls accept(), a new socket is created that is distinct from the named socket.
+                                   -----------
+-This new socket is used solely for communication with this particular client.		
+-The named socket remains for further connections from other clients.						   
+
+
+Client:
+--------
+1.The client creates an unnamed socket by calling socket().
+2. It then calls connect() to establish a connection with the server by using the server’s named socket as an address.
+
+Once established, sockets can be used like low-level file descriptors, providing two-way data 
+communications.
+
+Syntax:
+======
+1.socket:
+----------
+       #include <sys/types.h>          /* See NOTES */
+       #include <sys/socket.h>
+
+       int socket(int domain, int type, int protocol);
+
+       The domain argument specifies a communication domain; this selects the protocol family which will be used for communication.  These families are defined  in
+       <sys/socket.h>.  The currently understood formats include:
+
+       Name                Purpose                          Man page
+       AF_UNIX, AF_LOCAL   Local communication              unix(7)
+       AF_INET             IPv4 Internet protocols          ip(7)
+       AF_INET6            IPv6 Internet protocols          ipv6(7)
+       AF_IPX              IPX - Novell protocols
+       AF_NETLINK          Kernel user interface device     netlink(7)
+       AF_X25              ITU-T X.25 / ISO-8208 protocol   x25(7)
+       AF_AX25             Amateur radio AX.25 protocol
+       AF_ATMPVC           Access to raw ATM PVCs
+       AF_APPLETALK        AppleTalk                        ddp(7)
+       AF_PACKET           Low level packet interface       packet(7)
+       AF_ALG              Interface to kernel crypto API
+
+       The socket has the indicated type, which specifies the communication semantics.  Currently defined types are:
+
+       SOCK_STREAM     Provides sequenced, reliable, two-way, connection-based byte streams.  An out-of-band data transmission mechanism may be supported.
+
+       SOCK_DGRAM      Supports datagrams (connectionless, unreliable messages of a fixed maximum length).
+
+       SOCK_SEQPACKET  Provides  a  sequenced,  reliable,  two-way  connection-based  data  transmission  path for datagrams of fixed maximum length; a consumer is
+                       required to read an entire packet with each input system call.
+
+       SOCK_RAW        Provides raw network protocol access.
+
+       SOCK_RDM        Provides a reliable datagram layer that does not guarantee ordering.
+
+       SOCK_PACKET     Obsolete and should not be used in new programs; see packet(7).
+
+
+socket domain:
+===============
+-Domains specify the network medium that the socket communication will use.
+
+-The most common socket domain is AF_INET, which refers to Internet networking that’s used on many Linux local area networks
+ and, of course, the Internet itself. The underlying protocol, Internet Protocol (IP), which only has one address
+ family.
+ 
+-When a client connects across a network via sockets,it needs the IP address of the server computer.
+
+-There may be several services available at the server computer. A client can address a particular service on a networked machine by using an IP port.
+                                                                                                                                              --------
+-port:
+ -----
+ A port is identified within the system by assigning a unique 16-bit integer and externally by the combination of IP address and port number.
+ 
+-The sockets are communication end points that must be bound to ports before communication is possible.
+
+-Servers wait for connections on particular ports. Well-known services have allocated port numbers that
+ are used by all Linux and UNIX machines. These are usually, but not always, numbers less than 1024.
+ 
+ 
+ 
+-The domain in the first example is the UNIX file system domain, AF_UNIX, which can be used by sockets based on a single computer that
+ perhaps isn’t networked.
+ 
+-When this is so, the underlying protocol is file input/output and the addresses are filenames.
+
+-The address that you used for the server socket was server_socket, which you saw appear in the current directory when you ran the server application.
+
+Socket Types:
+=============
+-Internet protocols provide two communication mechanisms with distinct levels of service: streams and datagrams.
+                                                                                          -------     ------------
+-Stream Sockets:(AF_INET----SOCK_STREAM---->TCP/IP)
+ -----------------
+ -Stream sockets provide a connection that is a sequenced and reliable two-way byte stream.
+ -Data sent is guaranteed not to be lost, duplicated, or reordered without an indication that an error has occurred.
+ -Large messages are fragmented, transmitted, and reassembled.
+ -Stream sockets, specified by the type SOCK_STREAM, are implemented in the AF_INET domain by TCP/IP connections.
+                                                                            -------           ------
+ -SOCK_STREAM sockets are more commonly used in programming network applications.
+
+-TCP/IP:
+ --------
+ -TCP/IP stands for Transmission Control Protocol/Internet Protocol. 
+ -IP is the low-level protocol for packets that provides routing through the network from one computer to another.
+ -TCP provides sequencing, flow control, and retransmission to ensure that large data transfers arrive with all of the data present and correct
+  or with an appropriate error condition reported.
+																						  
+-Datagram Sockets:(AF_INET----SOCK_DGRAM---->UDP/IP)
+ -------------------
+ -A datagram socket, specified by the type SOCK_DGRAM, doesn’t establish and maintain a connection.
+ -There is also a limit on the size of a datagram that can be sent.
+ -It’s transmitted as a single network message that may get lost, duplicated, or arrive out of sequence — ahead of datagrams sent after it.
+ -Datagram sockets are implemented in the AF_INET domain by UDP/IP connections and provide an unsequenced, unreliable service. 
+                                          -------           ------
+ -They’re fast because there is no associated connection setup time.
+-UDP:
+ ----
+ -UDP stands for User Datagram Protocol.
+ 
+Protocol:
+=========
+ The protocol parameter is used where there is a choice. 0 selects the default protocol.
+
+
+
+2.bind():
+-----------
+       #include <sys/types.h>          /* See NOTES */
+       #include <sys/socket.h>
+
+       int bind(int sockfd, const struct sockaddr *addr,
+                socklen_t addrlen);
+				
+				
+		The actual structure passed for the addr argument will depend on the address family.  The sockaddr structure is defined as something like:
+
+           struct sockaddr {
+               sa_family_t sa_family;
+               char        sa_data[14];
+           }
+		   
+		   
+RETURN VALUE
+       On success, zero is returned.  On error, -1 is returned, and errno is set appropriately.
+
+Socket Addresses:
+===================
+-For an AF_UNIX socket, the address is described by a structure, sockaddr_un, defined in the sys/un.h include file.
+      ---------                                                  -----------                 --------
+	struct sockaddr_un {
+		sa_family_t sun_family; /* AF_UNIX */
+		char sun_path[]; /* pathname */
+	}
+	
+	
+-For an AF_INET domain, the address is specified using a structure called sockaddr_in, defined in netinet/in.h, which contains at least these members:
+        -------                                                           -----------             ------------
+	struct sockaddr_in {
+		short int sin_family; /* AF_INET */
+		unsigned short int sin_port; /* Port number */
+		struct in_addr sin_addr; /* Internet address */
+	};
+	
+The IP address structure, in_addr, is defined as follows:
+	struct in_addr {
+		unsigned long int s_addr;
+	}
+	
+	
+-AF_UNIX sockets are associated with a file system pathname.
+-AF_INET sockets are associated with an IP and port number.
+
+3.listen():
+--------------
+       #include <sys/types.h>          /* See NOTES */
+       #include <sys/socket.h>
+
+       int listen(int sockfd, int backlog);
+
+DESCRIPTION
+       listen()  marks  the  socket  referred to by sockfd as a passive socket, that is, as a socket that will be used to accept incoming connection requests using
+       accept(2).
+
+       The sockfd argument is a file descriptor that refers to a socket of type SOCK_STREAM or SOCK_SEQPACKET.
+
+       The backlog argument defines the maximum length to which the queue of pending connections for sockfd may grow.  If a connection  request  arrives  when  the
+       queue is full, the client may receive an error with an indication of ECONNREFUSED or, if the underlying protocol supports retransmission, the request may be
+       ignored so that a later reattempt at connection succeeds.
+
+RETURN VALUE
+       On success, zero is returned.  On error, -1 is returned, and errno is set appropriately.
+	   
+	   
+	   
+4.accept():
+---------------
+       #include <sys/types.h>          /* See NOTES */
+       #include <sys/socket.h>
+
+       int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+RETURN VALUE
+       On success, these system calls return a nonnegative integer that is a file descriptor for the accepted socket.  On error, -1 is returned, and errno  is  set
+       appropriately.
+
+-
+If there are no connections pending on the socket’s queue, accept will block (so that the program won’t continue) until a client does make connection.
+
+2.connect():
+------------
+       #include <sys/types.h>          /* See NOTES */
+       #include <sys/socket.h>
+
+       int connect(int sockfd, const struct sockaddr *addr,
+                   socklen_t addrlen);
+
+
+RETURN VALUE
+       If the connection or binding succeeds, zero is returned.  On error, -1 is returned, and errno is set appropriately.
+	   
+	   
+-If the connection can’t be set up immediately, connect will block for an unspecified timeout period. Oncethis timeout has expired,
+ the connection will be aborted and connect will fail.	   
+
+
+Socket Communications:
+==========================
+-File Domain Socket System(AF_UNIX):
+ ------------------------------------
+ - The file system socket has the disadvantage that, unless the author uses an absolute pathname, it’s created in the server program’s current directory.
+ - To make it more generally useful, you need to create it in a globally accessible directory (such as /tmp) that is agreed between the server and its
+   clients.
+
+-Network Domain Socket(AF_INET):
+ ---------------------------------
+ - For network sockets,you need only choose an unused port number.
+ - Other port numbers are often listed, with the services provided on them, in the system file /etc/services.
+ - When you’re writing socket-based applications, always choose a port number not listed in this configuration file.
+	
+	km@KernelMasters:~$ cat /etc/services 
+	# Network services, Internet style
+	#
+	# Note that it is presently the policy of IANA to assign a single well-known
+	# port number for both TCP and UDP; hence, officially ports have two entries
+	# even if the protocol doesn't support UDP operations.
+	#
+	# Updated from http://www.iana.org/assignments/port-numbers and other
+	# sources like http://www.freebsd.org/cgi/cvsweb.cgi/src/etc/services .
+	# New ports will be added on request if they have been officially assigned
+	# by IANA and used in the real-world or are needed by a debian package.
+	# If you need a huge list of used numbers please install the nmap package.
+
+	tcpmux		1/tcp				# TCP port service multiplexer
+	echo		7/tcp
+	echo		7/udp
+	discard		9/tcp		sink null
+	discard		9/udp		sink null
+	systat		11/tcp		users
+	daytime		13/tcp
+	daytime		13/udp
+	netstat		15/tcp
+	qotd		17/tcp		quote
+	msp		18/tcp				# message send protocol
+	msp		18/udp
+	chargen		19/tcp		ttytst source
+	chargen		19/udp		ttytst source
+	ftp-data	20/tcp
+	ftp		21/tcp
+	fsp		21/udp		fspd
+	ssh		22/tcp				# SSH Remote Login Protocol
+	telnet		23/tcp
+	smtp		25/tcp		mail
+	time		37/tcp		timserver
+	time		37/udp		timserver
+	rlp		39/udp		resource	# resource location
+	nameserver	42/tcp		name		# IEN 116
+	whois		43/tcp		nicname
+	tacacs		49/tcp				# Login Host Protocol (TACACS)
+	tacacs		49/udp
+	re-mail-ck	50/tcp				# Remote Mail Checking Protocol
+	re-mail-ck	50/udp
+	domain		53/tcp				# Domain Name Server
+	domain		53/udp
+	tacacs-ds	65/tcp				# TACACS-Database Service
+	tacacs-ds	65/udp
+	bootps		67/tcp				# BOOTP server
+	bootps		67/udp
+	bootpc		68/tcp				# BOOTP client
+	bootpc		68/udp
+	tftp		69/udp
+	gopher		70/tcp				# Internet Gopher
+	------
+	-----
+	-----
+	-----
+	
+	
+	
+Loopback address:
+===================
+The loopback network consists of a single computer, conventionally called localhost, with a standard
+IP address of 127.0.0.1. This is the local machine. You’ll find its address listed in the network hosts file,
+/etc/hosts, with the names and addresses of other hosts on shared networks.
+
+km@KernelMasters:~$ vim /etc/hosts:
+------------------------------------
+  1 127.0.0.1       localhost
+  2 127.0.1.1       KernelMasters
+  3 
+  4 # The following lines are desirable for IPv6 capable hosts
+  5 ::1     ip6-localhost ip6-loopback
+  6 fe00::0 ip6-localnet
+  7 ff00::0 ip6-mcastprefix
+  8 ff02::1 ip6-allnodes
+  9 ff02::2 ip6-allrouters
+
+
+
+
+Example:
+========
+A  Simple Local Client:
+--------------------------
+#include <sys/types.h>    
+#include <sys/socket.h>
+#include <stdio.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <errno.h>
+
+int main()
+{
+        int sockfd;
+        int len;
+        struct sockaddr_un address;
+        int result;
+        char ch = 'A';
+    
+        //1st.Create socket for client
+        sockfd = socket(AF_UNIX, SOCK_STREAM, 0); 
+        if(sockfd == -1) 
+        {
+                perror("Socket");
+                exit(EXIT_FAILURE);
+        }
+
+        //2nd.Name the socket as agreed with the server
+        address.sun_family = AF_UNIX;
+        strcpy(address.sun_path, "server_socket");
+        len = sizeof(address);
+
+        //3rd.Connect the socket to the server's socket;
+        result = connect(sockfd, (struct sockaddr *)&address, len);
+        if(result == -1) 
+        {
+                perror("connect error:");
+                exit(EXIT_FAILURE);
+        }    
+    
+        //4th.You can now read and write via sockfd:
+        write(sockfd,&ch,1);
+        read(sockfd,&ch,1);
+        printf("Character from server:%c\n",ch);
+        close(sockfd);
+        exit(0);
+}
+
+
+
+A Simple Server:
+---------------------
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <stdio.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+int main()
+{
+        int server_sockfd,client_sockfd;
+        int server_len,client_len;
+        struct sockaddr_un server_address;
+        struct sockaddr_un client_address;
+
+        //1.Remove any old socket and create unnamed socket
+        unlink("server_socket");
+        server_sockfd = socket(AF_UNIX,SOCK_STREAM,0);
+        if(server_sockfd == -1) 
+        {
+                perror("socket error:");
+                exit(EXIT_FAILURE);
+        }
+
+        //2.Name the socket
+        server_address.sun_family = AF_UNIX;
+        strcpy(server_address.sun_path, "server_socket");
+        server_len = sizeof(server_address);
+        bind(server_sockfd, (struct sockaddr *)&server_address, server_len);
+    
+        //3.Create a connection queue and wait for clients
+        listen(server_sockfd, 5); 
+        while(1)
+        {
+                char ch; 
+                printf("server waiting.....\n");
+        //4.Accept a conection
+                client_len = sizeof(client_sockfd);
+                client_sockfd = accept(server_sockfd, (struct sockaddr *)&client_address, &client_len);
+
+        //5.Read and Write to the client_sockfd;
+                read(client_sockfd, &ch, 1);
+                printf("Message Received from client:%c\n",ch);
+                ch++;
+                write(client_sockfd, &ch, 1);
+                close(client_sockfd);
+        }
+        close(server_sockfd);
+        exit(EXIT_SUCCESS);
+}
+
+
+
+
+select():
+===============
+-The select system call allows a program to wait for input to arrive (or output to complete) on a number of low-level file descriptors at once.
+-The select function operates on data structures, fd_set, that are sets of open file descriptors. A number of macros are defined for manipulating these
+ sets:
+ 
+			#include <sys/types.h>
+			#include <sys/time.h>
+			void FD_ZERO(fd_set *fdset);
+			void FD_CLR(int fd, fd_set *fdset);
+			void FD_SET(int fd, fd_set *fdset);
+			int FD_ISSET(int fd, fd_set *fdset);
+			
+			
+	FD_ZERO initializes an fd_set to the empty set.
+	FD_SET and FD_CLR set and clear elements of the set corresponding to the file descriptor passed as fd
+	FD_ISSET returns nonzero if the file descriptor referred to by fd is an element of the fd_set pointed to by fdset.
+	The maximum number of file descriptors in an fd_set structure is given by the constant FD_SETSIZE.
+	The select function can also use a timeout value to prevent indefinite blocking.
+	
+	
+-The select system call has the following prototype:
+			#include <sys/types.h>
+			#include <sys/time.h>
+			int select(int nfds, fd_set *readfds, fd_set *writefds, 
+			fd_set *errorfds, struct timeval *timeout);
+			
+	nfds--->specifies the number of file descriptors to be tested, and descriptors from 0 to nfds-1 are considered.
+	
+-The select function will return if any of the descriptors in the readfds set are ready for reading, if any in the writefds set are ready for writing,
+ or if any in errorfds have an error condition.
+ 
+-The select function will return if any of the descriptors in the readfds set are ready for reading, if any in the writefds set are ready for writing,
+ or if any in errorfds have an error condition.
+ 
+-When select returns, the descriptor sets will have been modified to indicate which descriptors are ready for reading or writing or have errors.
+
+-When select returns, the descriptor sets will have been modified to indicate which descriptors are ready for reading or writing or have errors.
+
+-The select call returns the total number of descriptors in the modified sets. It returns –1 on failure, setting errno to describe the error.
+ Possible errors are EBADF for invalid descriptors, EINTR for returndue to interrupt, and EINVAL for bad values for nfds or timeout.
+

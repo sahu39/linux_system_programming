@@ -1,0 +1,5 @@
+http://www.csc.villanova.edu/~mdamian/threads/posixthreads.html
+
+pthread_join example:
+----------------------
+https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_join.html

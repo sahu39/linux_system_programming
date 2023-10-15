@@ -1,0 +1,9 @@
+mutex:
+-------
+https://www.geeksforgeeks.org/mutex-lock-for-linux-thread-synchronization/
+
+semaphore:
+----------
+https://www.geeksforgeeks.org/use-posix-semaphores-c/
+
+https://www.geeksforgeeks.org/semaphores-operating-system/

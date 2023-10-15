@@ -1,0 +1,7 @@
+
+https://www.geeksforgeeks.org/input-output-system-calls-c-create-open-close-read-write/
+
+
+errno error:
+------------
+https://www.taygeta.com/misc/nonTLS.html

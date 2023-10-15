@@ -1,0 +1,199 @@
+Thread:
+----------
+-Multiple strands of execution in a single program are called threads. A more precise definition is that a
+thread is a sequence of control within a process.
+
+
+-Difference between the fork system call and the creation of
+new threads. When a process executes a fork call, a new copy of the process is created with its
+own variables and its own PID.
+
+-When we create a new thread in a
+process, in contrast, the new thread of execution gets its own 
+		stack (and hence local variables) but
+		shares global variables, 
+		file descriptors, 
+		signal handlers, 
+		and its current directory state with the process that created it.
+
+Advantages and Drawbacks of Threads :
+-------------------------------------
+Advantages:
+-------------
+-Sometimes it is very useful to make a program appear to do two things at once.
+-The performance of an application that mixes input, calculation, and output may be improved
+by running these as three separate threads. While the input or output thread is waiting for a
+connection, one of the other threads can continue with calculations. A server application processing multiple network connects may also be a natural fit for a multithread.
+
+- Now that multi-cored CPUs are common even in desktop and laptop machines, using multiple
+threads inside a process can, if the application is suitable, enable a single process to better utilize
+the hardware resources available.
+
+- In general, switching between threads requires the operating system to do much less work than
+switching between processes.
+
+Drawbacks:
+----------
+-The potential for introducing 
+subtle timing faults, or faults caused by the unintentional sharing of variables in a multithreaded
+program is considerable
+
+-Debugging a multithreaded program is much, much harder than debugging a single-threaded
+one, because the interactions between the threads are very hard to control. 
+
+- A program that splits a large calculation into two and runs the two parts as different threads
+will not necessarily run more quickly on a single processor machine, unless the calculation truly
+allows multiple parts to be calculated simultaneously and the machine it is executing on has
+multiple processor cores to support true multiprocessing.
+
+
+
+Thread APIS:
+------------
+#include <pthread.h>
+
+1st:
+-------
+int pthread_create(pthread_t *thread, pthread_attr_t *attr, void *(*start_routine)(void *), void *arg);
+
+void *(*start_routine)(void *)
+The preceding line simply says that you must pass the address of a function taking a pointer to void as a
+parameter and the function will return a pointer to void.
+
+
+2nd:
+-----
+void pthread_exit(void *retval);
+
+When a thread terminates, it calls the pthread_exit function, much as a process calls exit when it terminates. This function terminates the calling thread, returning a pointer to an object. Never use it to return
+a pointer to a local variable, because the variable will cease to exist when the thread does so, causing a
+serious bug. pthread_exit is declared as follows:
+
+
+3rd:
+----
+int pthread_join(pthread_t th, void **thread_return);
+
+
+pthread_join is the thread equivalent of wait that processes use to collect child processes.
+
+The first parameter is the thread for which to wait, the identifier that pthread_create filled in for
+you. The second argument is a pointer to a pointer that itself points to the return value from the
+thread.
+
+
+Synchronization:
+---------------
+there is a set functions specifically designed to provide
+better ways to control the execution of threads and access to critical sections of code
+
+
+We look at two basic methods here: semaphores, which act as gatekeepers around a piece of code, and
+mutexes, which act as a mutual exclusion (hence the name mutex) device to protect sections of code.
+
+
+controlling access to some shared memory, which only one thread can access at a time, would most naturally
+involve a mutex.
+
+. However, controlling access to a set of identical objects as a whole, such as giving one
+telephone line out of a set of five available lines to a thread, suits a counting semaphore better.
+
+Semaphore:
+-----------
+semaphore is a special
+type of variable that can be incremented or decremented, but crucial access to the variable is guaranteed
+to be atomic, even in a multithreaded program.
+
+
+
+This means that if two (or more) threads in a program
+attempt to change the value of a semaphore, the system guarantees that all the operations will in fact
+take place in sequence.
+
+
+binary semaphore that takes only values 0 or 1.
+, a counting semaphore that takes a wider range of values
+
+
+
+Normally,
+semaphores are used to protect a piece of code so that only one thread of execution can run it at any one
+time. For this job a binary semaphore is needed.
+
+ Occasionally, you want to permit a limited number of
+threads to execute a given piece of code; for this you would use a counting semaphore. Because counting
+semaphores are much less common, we won’t consider them further here except to say that they are just a
+logical extension of a binary semaphore and that the actual function calls needed are identical.
+
+
+Semaphore APIS:
+--------------
+#include <semaphore.h>
+
+1st:
+----
+int sem_init(sem_t *sem, int pshared, unsigned int value);
+
+
+
+ If the value of pshared is 0, the semaphore is local to the current process. . Otherwise, the semaphore
+may be shared between processes
+
+2nd:
+-----
+
+int sem_post(sem_t * sem);:
+---------------------------
+The sem_post function atomically increases the value of the semaphore by 1.
+The sem_post function atomically increases the value of the semaphore by 1. Atomically here means that if
+two threads simultaneously try to increase the value of a single semaphore by 1, they do not interfere with
+each other, as might happen if two programs read, increment, and write a value to a file at the same time. If
+both programs try to increase the value by 1, the semaphore will always be correctly increased in value by 2.
+
+int sem_wait(sem_t * sem);:
+---------------------------
+The sem_wait function atomically decreases the value of the semaphore by one, but always waits until
+the semaphore has a nonzero count first.
+Thus, if you call sem_wait on a semaphore with a value of 2,
+the thread will continue executing but the semaphore will be decreased to 1.
+Thus, if you call sem_wait on a semaphore with a value of 2,
+the thread will continue executing but the semaphore will be decreased to 1.
+
+. If two threads are both waiting in sem_wait for the same semaphore to become
+nonzero and it is incremented once by a third process, only one of the two waiting processes will get to
+decrement the semaphore and continue.  the other will remain waiting.
+
+
+3rd:
+-----
+int sem_destroy(sem_t * sem);
+
+
+
+
+Mutex:
+--------
+mutexes (short for mutual
+exclusions)
+
+
+which act by allowing the programmer to “lock” an object so that only one thread can access
+it. To control access to a critical section of code you lock a mutex before entering the code section and
+then unlock it when you have finished.
+
+mutex apis:
+----------
+#include <pthread.h>
+
+
+int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *mutexattr);
+int pthread_mutex_lock(pthread_mutex_t *mutex));
+int pthread_mutex_unlock(pthread_mutex_t *mutex);
+int pthread_mutex_destroy(pthread_mutex_t *mutex);
+
+
+Deadlock:
+--------
+This has the slight drawback that, if your program tries to call pthread_mutex_lock on a mutex that it has already locked, the program will block.
+Because the thread that holds the lock is the one that is now blocked, the mutex can never be unlocked and
+the program is deadlocked.
